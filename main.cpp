@@ -18,5 +18,6 @@ int main(int argc, char* argv[])
 		std::cout << ex.what() << std::endl;
 	}
 
+	cout << "hogehoge" << endl;
 	return 0;
 }
