@@ -22,8 +22,10 @@
 #include <conio.h>
 #include "NhConversion.h"
 #include <random>
+#include <boost/any.hpp>
 
 using namespace Microsoft::WRL;
+using namespace boost;
 
 typedef std::basic_string<TCHAR>		tstring;
 typedef std::basic_stringstream<TCHAR>	tstringstream;
@@ -83,6 +85,16 @@ public:
 	//lassoCount
 	void initializeLassoCount(){ lassoCount == 0; }
 	void plus1ToLassoCount(){ lassoCount++; }
+	//データ出力一発目の判定(フレーム数取得に使用)
+	bool isFirstAcquire(){
+		if (lassoCount == 11){
+			return true;
+		}
+		else{
+			return false;
+		}
+	}
+	//データ出力の判定
 	bool isAcquireBodyPoint(){
 		if (lassoCount > 10){
 			return true;
@@ -155,7 +167,11 @@ private:
 	float evaluate_angle(Joint c, Joint a, Joint b);
 
 	//output_data
-	void output_data();
+	void output_data(std::vector<any>& feature1, std::vector<any>& feature2, std::vector<any>& feature3,
+		std::vector<any>& feature4, std::vector<any>& feature5);
+
+	//check_all_tracked
+	bool isAllJointTracked(std::array<Joint, JointType::JointType_Count>& joints);
 };
 
 bool HttpRequest(tstring strUserAgent, tstring strUrl, bool bIsHttpVerbGet, tstring strParameter, tstring& rstrResult);

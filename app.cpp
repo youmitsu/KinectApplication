@@ -9,13 +9,26 @@
 #include "stdlib.h"
 #include <stdio.h>
 #include <iostream>
+
 #include <fstream>
 #include <Wininet.h>
 #include "NhConversion.h"
+#include "json_builder.h"
+#include <map>
+#include <boost/any.hpp>
 
 #pragma comment (lib, "Wininet.lib")
 
+using namespace boost;
+
+typedef std::basic_string<TCHAR>		tstring;
+typedef std::basic_stringstream<TCHAR>	tstringstream;
+
 #define PI 3.1415
+#define URLBUFFER_SIZE		(4096)
+#define	READBUFFER_SIZE		(4096)
+#define FEATURE_SIZE 5
+#define FRAME_SIZE 13
 
 // Constructor
 Kinect::Kinect()
@@ -36,6 +49,7 @@ std::ofstream angle_data_right_knee("angle_data_right_knee.dat");
 std::ofstream angle_data_hip("angle_data_hip.dat");
 std::ofstream angle_data_left_elbow("angle_data_left_elbow.dat");
 std::ofstream angle_data_right_elbow("angle_data_right_elbow.dat");
+std::ofstream tracked_check_log("tracked_check.dat");
 
 int Kinect::count;
 int Kinect::lassoCount;
@@ -44,6 +58,23 @@ void Kinect::run()
 {	
 	countInitialize();
 	initializeLassoCount();
+	tstring strUserAgent = _T("HttpRequestTest");
+	tstring strUrl = _T("https://kinect-walking-api.herokuapp.com/index");
+	bool bIsHttpVerbGet = false;
+	const int proc_id = 20161202001;
+	const int devise_id = 1;
+	tstring strResult;
+
+	map<string, any> obj;
+	obj["proc_id"] = proc_id;
+	obj["devise_id"] = devise_id;
+
+	vector<any> feature1;
+	vector<any> feature2;
+	vector<any> feature3;
+	vector<any> feature4;
+	vector<any> feature5;
+	
     // Main Loop
     while( true ){
 		nextCount();
@@ -52,8 +83,11 @@ void Kinect::run()
 
 		//角度データ出力
 		if (isAcquireBodyPoint()){
-			std::cout << getCount() << std::endl;
-			output_data();
+			if (isFirstAcquire()){
+				countInitialize();
+			}
+		//	std::cout << getCount() << std::endl;
+			output_data(feature1, feature2, feature3, feature4 ,feature5);
 		}
 
         // Draw Data
@@ -68,6 +102,25 @@ void Kinect::run()
             break;
         }
     }
+	obj["f1"] = feature1;
+	obj["f2"] = feature1;
+	obj["f3"] = feature1;
+	obj["f4"] = feature1;
+	obj["f5"] = feature1;
+	string json = json_builder::toJson(obj);
+	cout << json << endl;
+	
+	setlocale(LC_ALL, "Japanese");
+	TCHAR* str = new TCHAR[2000];
+	_stprintf_s(str, 2000, _T("%s"), json.c_str());
+	tstring strParameter = str;
+	if (!HttpRequest(strUserAgent, strUrl, bIsHttpVerbGet, strParameter, strResult))
+	{
+		std::cout << "failure" << std::endl;
+	}
+	setlocale(LC_ALL, "Japanese");
+	_tprintf(_T("%s"), strResult.c_str());
+	tracked_check_log.close();
 	angle_data_left_knee.close();
 	angle_data_right_knee.close();
 	angle_data_hip.close();
@@ -302,8 +355,36 @@ inline void Kinect::drawColor()
     colorMat = cv::Mat( colorHeight, colorWidth, CV_8UC4, &colorBuffer[0] );
 }
 
-void Kinect::output_data()
+bool Kinect::isAllJointTracked(std::array<Joint, JointType::JointType_Count>& joints){
+	std::vector<int> jointComposeAngle = { JointType::JointType_KneeLeft, JointType::JointType_HipLeft, JointType::JointType_AnkleLeft,
+		JointType::JointType_KneeRight, JointType::JointType_HipRight, JointType::JointType_AnkleRight, JointType::JointType_SpineBase,
+		JointType::JointType_ElbowLeft, JointType::JointType_ShoulderLeft, JointType::JointType_WristLeft,
+		JointType::JointType_ElbowRight, JointType::JointType_ShoulderRight, JointType::JointType_WristRight };
+	bool isTracked = true;
+	tracked_check_log << "===============" << getCount() << "===============" << std::endl;
+	for (int type = 0; type < JointType::JointType_Count; type++){
+		const Joint joint = joints[type];
+		tracked_check_log << "--jointType----" << joint.JointType << "-----" << std::endl;
+		tracked_check_log << joint.TrackingState << std::endl;
+		if (joint.TrackingState == TrackingState::TrackingState_NotTracked){
+			isTracked = false;
+			break;
+		}
+	/*	if (joint.TrackingState == TrackingState::TrackingState_Inferred){
+			auto itr = std::find(jointComposeAngle.begin(), jointComposeAngle.end(), joint.JointType);
+			if (itr == jointComposeAngle.end()){
+				isTracked = false;
+				break;
+			}
+		}*/
+	}
+	return isTracked;
+}
+
+void Kinect::output_data(std::vector<any>& feature1, std::vector<any>& feature2, std::vector<any>& feature3,
+	std::vector<any>& feature4, std::vector<any>& feature5)
 {
+	float angleLeftKnee, angleRightKnee, angleHip, angleLeftElbow, angleRightElbow;
 	for (int index = 0; index < BODY_COUNT; index++){
 		ComPtr<IBody> body = bodies[index];
 		if (body == nullptr){
@@ -319,16 +400,36 @@ void Kinect::output_data()
 		std::array<Joint, JointType::JointType_Count> joints;
 		ERROR_CHECK(body->GetJoints(static_cast<UINT>(joints.size()), &joints[0]));
 
+		if (isAllJointTracked(joints)){
+			angleLeftKnee = evaluate_angle(joints[JointType::JointType_KneeLeft], joints[JointType::JointType_HipLeft], joints[JointType::JointType_AnkleLeft]);
+			angleRightKnee = evaluate_angle(joints[JointType::JointType_KneeRight], joints[JointType::JointType_HipRight], joints[JointType::JointType_AnkleRight]);
+			angleHip = evaluate_angle(joints[JointType::JointType_SpineBase], joints[JointType::JointType_KneeRight], joints[JointType::JointType_KneeLeft]);
+			angleLeftElbow = evaluate_angle(joints[JointType::JointType_ElbowLeft], joints[JointType::JointType_ShoulderLeft], joints[JointType::JointType_WristLeft]);
+			angleRightElbow = evaluate_angle(joints[JointType::JointType_ElbowRight], joints[JointType::JointType_ShoulderRight], joints[JointType::JointType_WristRight]);
+		}
+		else{
+			angleLeftKnee = 0.0;
+			angleRightKnee = 0.0;
+			angleHip = 0.0;
+			angleLeftElbow = 0.0;
+			angleRightElbow = 0.0;
+		}
+		feature1.push_back(angleLeftKnee);
+		feature2.push_back(angleLeftKnee);
+		feature3.push_back(angleLeftKnee);
+		feature4.push_back(angleLeftKnee);
+		feature5.push_back(angleLeftKnee);
+
 		//左膝
-		angle_data_left_knee << getCount() << " " << evaluate_angle(joints[JointType::JointType_KneeLeft], joints[JointType::JointType_HipLeft],joints[JointType::JointType_AnkleLeft]) << std::endl;
-        //右膝
-		angle_data_right_knee << getCount() << " " << evaluate_angle(joints[JointType::JointType_KneeRight], joints[JointType::JointType_HipRight], joints[JointType::JointType_AnkleRight]) << std::endl;
-        //股
-		angle_data_hip << getCount() << " " << evaluate_angle(joints[JointType::JointType_SpineBase], joints[JointType::JointType_KneeRight], joints[JointType::JointType_KneeLeft]) << std::endl;
+		angle_data_left_knee << getCount() << " " << angleLeftKnee << std::endl;
+		//右膝
+		angle_data_right_knee << getCount() << " " << angleRightKnee << std::endl;
+		//股
+		angle_data_hip << getCount() << " " << angleHip << std::endl;
 		//左肘
-		angle_data_left_elbow << getCount() << " " << evaluate_angle(joints[JointType::JointType_ElbowLeft], joints[JointType::JointType_ShoulderLeft], joints[JointType::JointType_WristLeft]) << std::endl;
+		angle_data_left_elbow << getCount() << " " << angleLeftElbow << std::endl;
 		//右肘
-		angle_data_right_elbow << getCount() << " " << evaluate_angle(joints[JointType::JointType_ElbowRight], joints[JointType::JointType_ShoulderRight], joints[JointType::JointType_WristRight]) << std::endl;
+		angle_data_right_elbow << getCount() << " " << angleRightElbow << std::endl;
 	}
 }
 
@@ -490,16 +591,18 @@ inline void Kinect::showBody()
     const double scale = 0.5;
     cv::resize( colorMat, resizeMat, cv::Size(), scale, scale );
 
-	std::ostringstream oss;
-	oss << getCount() << ".png";
-	std::string filename = oss.str();
-	try{
-		imwrite(filename, resizeMat);
+	if (isAcquireBodyPoint()){
+		std::ostringstream oss;
+		oss << getCount() << ".png";
+		std::string filename = oss.str();
+		try{
+			imwrite(filename, resizeMat);
+		}
+		catch (std::runtime_error& ex){
+			std::cout << "failure" << std::endl;
+		}
+		oss.str("");
 	}
-	catch (std::runtime_error& ex){
-		std::cout << "failure" << std::endl;
-	}
-	oss.str("");
     // Show Image
     cv::imshow( "Body", resizeMat );
 }
@@ -537,4 +640,212 @@ float Kinect::evaluate_angle(Joint c, Joint a, Joint b)
 	float angle = acosf(cos);
 	//if (angle > PI / 2){ angle = PI - angle; }
 	return angle;
+}
+
+bool HttpRequest(tstring strUserAgent,
+	tstring strUrl,
+	bool bIsHttpVerbGet,
+	tstring strParameter,
+	tstring& rstrResult)
+{
+	// アウトプットの初期化
+	rstrResult = tstring();
+
+	// インプットのチェック
+	if (0 == strUrl.length())
+	{
+		assert(!"URLが不正");
+		return false;
+	}
+
+	// 変数
+	HINTERNET			hInternetOpen = NULL;
+	HINTERNET			hInternetConnect = NULL;
+	HINTERNET			hInternetRequest = NULL;
+	char*				pszOptional = NULL;
+	URL_COMPONENTS		urlcomponents;
+	tstring				strServer;
+	tstring				strObject;
+	INTERNET_PORT		nPort;
+	tstring				strVerb;
+	tstring				strHeaders;
+	tstringstream		ssRead;
+
+	// URL解析
+	ZeroMemory(&urlcomponents, sizeof(URL_COMPONENTS));
+	urlcomponents.dwStructSize = sizeof(URL_COMPONENTS);
+	TCHAR szHostName[URLBUFFER_SIZE];
+	TCHAR szUrlPath[URLBUFFER_SIZE];
+	urlcomponents.lpszHostName = szHostName;
+	urlcomponents.lpszUrlPath = szUrlPath;
+	urlcomponents.dwHostNameLength = URLBUFFER_SIZE;
+	urlcomponents.dwUrlPathLength = URLBUFFER_SIZE;
+	if (!InternetCrackUrl(strUrl.c_str(),
+		(DWORD)strUrl.length(),
+		0,
+		&urlcomponents))
+	{	// URLの解析に失敗
+		assert(!"URL解析に失敗");
+		return false;
+	}
+	strServer = urlcomponents.lpszHostName;
+	strObject = urlcomponents.lpszUrlPath;
+	nPort = urlcomponents.nPort;
+
+	// HTTPかHTTPSかそれ以外か
+	DWORD dwFlags = 0;
+	if (INTERNET_SCHEME_HTTP == urlcomponents.nScheme)
+	{	// HTTP
+		dwFlags = INTERNET_FLAG_RELOAD				// 要求されたファイル、オブジェクト、またはフォルダ一覧を、キャッシュからではなく、元のサーバーから強制的にダウンロードします。
+			| INTERNET_FLAG_DONT_CACHE			// 返されたエンティティをキャシュへ追加しません。
+			| INTERNET_FLAG_NO_AUTO_REDIRECT;	// HTTP だけで使用され、リダイレクトが HttpSendRequest で処理されないことを指定します。
+	}
+	else if (INTERNET_SCHEME_HTTPS == urlcomponents.nScheme)
+	{	// HTTPS
+		dwFlags = INTERNET_FLAG_RELOAD				// 要求されたファイル、オブジェクト、またはフォルダ一覧を、キャッシュからではなく、元のサーバーから強制的にダウンロードします。
+			| INTERNET_FLAG_DONT_CACHE			// 返されたエンティティをキャシュへ追加しません。
+			| INTERNET_FLAG_NO_AUTO_REDIRECT	// HTTP だけで使用され、リダイレクトが HttpSendRequest で処理されないことを指定します。
+			| INTERNET_FLAG_SECURE						// 安全なトランザクションを使用します。これにより、SSL/PCT を使うように変換され、HTTP 要求だけで有効です。 
+			| INTERNET_FLAG_IGNORE_CERT_DATE_INVALID	// INTERNET_FLAG_IGNORE_CERT_DATE_INVALID、INTERNET_FLAG_IGNORE_CERT_CN_INVALID
+			| INTERNET_FLAG_IGNORE_CERT_CN_INVALID;		// は、証明書に関する警告を無視するフラグ
+	}
+	else
+	{
+		assert(!"HTTPでもHTTPSでもない");
+		return false;
+	}
+
+	// GETかPOSTか
+	if (bIsHttpVerbGet)
+	{	// GET
+		strVerb = _T("GET");
+		strHeaders = _T("");
+		if (0 != strParameter.length())
+		{	// オブジェクトとパラメータを「?」で連結
+			strObject += _T("?") + strParameter;
+		}
+	}
+	else
+	{	// POST
+		strVerb = _T("POST");
+		strHeaders = _T("Content-Type: application/x-www-form-urlencoded");
+		if (0 != strParameter.length())
+		{	// パラメータを、送信するオプションデータに変換する
+			pszOptional = NhT2M(strParameter.c_str());	// char文字列に変換
+		}
+	}
+
+	// WinInetの初期化
+	hInternetOpen = InternetOpen(strUserAgent.c_str(),
+		INTERNET_OPEN_TYPE_PRECONFIG,
+		NULL, NULL, 0);
+	if (NULL == hInternetOpen)
+	{
+		assert(!"WinInetの初期化に失敗");
+		goto LABEL_ERROR;
+	}
+
+	// HTTP接続
+	hInternetConnect = InternetConnect(hInternetOpen,
+		strServer.c_str(),
+		nPort,
+		NULL,
+		NULL,
+		INTERNET_SERVICE_HTTP,
+		0,
+		0);
+	if (NULL == hInternetConnect)
+	{
+		assert(!"HTTP接続に失敗");
+		goto LABEL_ERROR;
+	}
+
+	// HTTP接続を開く
+	hInternetRequest = HttpOpenRequest(hInternetConnect,
+		strVerb.c_str(),
+		strObject.c_str(),
+		NULL,
+		NULL,
+		NULL,
+		dwFlags,
+		NULL);
+	if (NULL == hInternetRequest)
+	{
+		assert(!"HTTP接続を開くに失敗");
+		goto LABEL_ERROR;
+	}
+
+	// HTTP要求送信
+	if (!HttpSendRequest(hInternetRequest,
+		strHeaders.c_str(),
+		(DWORD)strHeaders.length(),
+		(LPVOID)((char*)pszOptional),
+		pszOptional ? (DWORD)(strlen(pszOptional) * sizeof(char)) : 0))
+	{
+		assert(!"HTTP要求送信に失敗");
+		goto LABEL_ERROR;
+	}
+
+	// HTTP要求に対応するステータスコードの取得
+	DWORD dwStatusCode;
+	DWORD dwLength = sizeof(DWORD);
+	if (!HttpQueryInfo(hInternetRequest,
+		HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER,
+		&dwStatusCode,
+		&dwLength,
+		0))
+	{
+		assert(!"HTTP要求に対応するステータスコードの取得に失敗");
+		goto LABEL_ERROR;
+	}
+	if (HTTP_STATUS_OK != dwStatusCode)
+	{
+		assert(!"ステータスコードがOKでない");
+		goto LABEL_ERROR;
+	}
+
+	// HTTPファイル読み込み
+	char szReadBuffer[READBUFFER_SIZE + 1];
+	while (1)
+	{
+		DWORD dwRead = 0;
+		if (!InternetReadFile(hInternetRequest, szReadBuffer, READBUFFER_SIZE, &dwRead))
+		{
+			assert(!"HTTPファイル読み込みに失敗");
+			goto LABEL_ERROR;
+		}
+		if (0 == dwRead)
+		{
+			break;
+		}
+		szReadBuffer[dwRead] = '\0';	// 終端文字「\0」の付加
+		size_t length = dwRead + 1;
+		LPWSTR	pszWideChar = (LPWSTR)malloc(length * sizeof(WCHAR));
+		MultiByteToWideChar(CP_UTF8,	// CODE PAGE: UTF-8
+			0,
+			szReadBuffer,
+			-1,
+			pszWideChar,
+			(int)length);	// UTF-8文字列をANSI文字列に変換
+		TCHAR* pszTchar = NhW2T(pszWideChar);	// WideChar文字列をTCHAR文字列に変換
+		ssRead << pszTchar;	// ストリーム文字列に流し込む
+		free(pszTchar);
+		free(pszWideChar);
+	}
+
+	// ストリーム文字列を、出力文字列に変換
+	rstrResult = ssRead.str().c_str();
+
+	if (pszOptional){ free(pszOptional); }
+	InternetCloseHandle(hInternetRequest);
+	InternetCloseHandle(hInternetConnect);
+	InternetCloseHandle(hInternetOpen);
+	return true;
+
+LABEL_ERROR:
+	if (pszOptional){ free(pszOptional); }
+	InternetCloseHandle(hInternetRequest);
+	InternetCloseHandle(hInternetConnect);
+	InternetCloseHandle(hInternetOpen);
+	return false;
 }
