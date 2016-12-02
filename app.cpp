@@ -61,13 +61,15 @@ void Kinect::run()
 	tstring strUserAgent = _T("HttpRequestTest");
 	tstring strUrl = _T("https://kinect-walking-api.herokuapp.com/index");
 	bool bIsHttpVerbGet = false;
-	const int proc_id = 20161202001;
+	const int proc_id = 2016120202;
 	const int devise_id = 1;
+	const int person = 1;
 	tstring strResult;
 
 	map<string, any> obj;
 	obj["proc_id"] = proc_id;
 	obj["devise_id"] = devise_id;
+	obj["person"] = person;
 
 	vector<any> feature1;
 	vector<any> feature2;
@@ -102,17 +104,18 @@ void Kinect::run()
             break;
         }
     }
+
 	obj["f1"] = feature1;
-	obj["f2"] = feature1;
-	obj["f3"] = feature1;
-	obj["f4"] = feature1;
-	obj["f5"] = feature1;
+	obj["f2"] = feature2;
+	obj["f3"] = feature3;
+	obj["f4"] = feature4;
+	obj["f5"] = feature5;
 	string json = json_builder::toJson(obj);
 	cout << json << endl;
 	
 	setlocale(LC_ALL, "Japanese");
-	TCHAR* str = new TCHAR[2000];
-	_stprintf_s(str, 2000, _T("%s"), json.c_str());
+	TCHAR* str = new TCHAR[10000000];
+	_stprintf_s(str, 10000000, _T("%s"), json.c_str());
 	tstring strParameter = str;
 	if (!HttpRequest(strUserAgent, strUrl, bIsHttpVerbGet, strParameter, strResult))
 	{
@@ -384,7 +387,7 @@ bool Kinect::isAllJointTracked(std::array<Joint, JointType::JointType_Count>& jo
 void Kinect::output_data(std::vector<any>& feature1, std::vector<any>& feature2, std::vector<any>& feature3,
 	std::vector<any>& feature4, std::vector<any>& feature5)
 {
-	float angleLeftKnee, angleRightKnee, angleHip, angleLeftElbow, angleRightElbow;
+	double angleLeftKnee, angleRightKnee, angleHip, angleLeftElbow, angleRightElbow;
 	for (int index = 0; index < BODY_COUNT; index++){
 		ComPtr<IBody> body = bodies[index];
 		if (body == nullptr){
@@ -415,10 +418,10 @@ void Kinect::output_data(std::vector<any>& feature1, std::vector<any>& feature2,
 			angleRightElbow = 0.0;
 		}
 		feature1.push_back(angleLeftKnee);
-		feature2.push_back(angleLeftKnee);
-		feature3.push_back(angleLeftKnee);
-		feature4.push_back(angleLeftKnee);
-		feature5.push_back(angleLeftKnee);
+		feature2.push_back(angleRightKnee);
+		feature3.push_back(angleHip);
+		feature4.push_back(angleLeftElbow);
+		feature5.push_back(angleRightElbow);
 
 		//ç∂ïG
 		angle_data_left_knee << getCount() << " " << angleLeftKnee << std::endl;
