@@ -61,7 +61,7 @@ void Kinect::run()
 	tstring strUserAgent = _T("HttpRequestTest");
 	tstring strUrl = _T("https://kinect-walking-api.herokuapp.com/index");
 	bool bIsHttpVerbGet = false;
-	const int proc_id = 2016120202;
+	const int proc_id = 2016120204;
 	const int devise_id = 1;
 	const int person = 1;
 	tstring strResult;
@@ -404,8 +404,8 @@ void Kinect::output_data(std::vector<any>& feature1, std::vector<any>& feature2,
 		ERROR_CHECK(body->GetJoints(static_cast<UINT>(joints.size()), &joints[0]));
 
 		if (isAllJointTracked(joints)){
-			angleLeftKnee = evaluate_angle(joints[JointType::JointType_KneeLeft], joints[JointType::JointType_HipLeft], joints[JointType::JointType_AnkleLeft]);
-			angleRightKnee = evaluate_angle(joints[JointType::JointType_KneeRight], joints[JointType::JointType_HipRight], joints[JointType::JointType_AnkleRight]);
+			angleLeftKnee = evaluate_angle(joints[JointType::JointType_KneeLeft], joints[JointType::JointType_SpineBase], joints[JointType::JointType_AnkleLeft]);
+			angleRightKnee = evaluate_angle(joints[JointType::JointType_KneeRight], joints[JointType::JointType_SpineBase], joints[JointType::JointType_AnkleRight]);
 			angleHip = evaluate_angle(joints[JointType::JointType_SpineBase], joints[JointType::JointType_KneeRight], joints[JointType::JointType_KneeLeft]);
 			angleLeftElbow = evaluate_angle(joints[JointType::JointType_ElbowLeft], joints[JointType::JointType_ShoulderLeft], joints[JointType::JointType_WristLeft]);
 			angleRightElbow = evaluate_angle(joints[JointType::JointType_ElbowRight], joints[JointType::JointType_ShoulderRight], joints[JointType::JointType_WristRight]);
