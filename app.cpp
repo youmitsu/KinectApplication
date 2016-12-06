@@ -29,6 +29,7 @@ typedef std::basic_stringstream<TCHAR>	tstringstream;
 #define	READBUFFER_SIZE		(4096)
 #define FEATURE_SIZE 5
 #define FRAME_SIZE 13
+#define ISPOST false
 
 // Constructor
 Kinect::Kinect()
@@ -44,11 +45,6 @@ Kinect::~Kinect()
     finalize();
 }
 
-std::ofstream angle_data_left_knee("angle_data_left_knee.dat");
-std::ofstream angle_data_right_knee("angle_data_right_knee.dat");
-std::ofstream angle_data_hip("angle_data_hip.dat");
-std::ofstream angle_data_left_elbow("angle_data_left_elbow.dat");
-std::ofstream angle_data_right_elbow("angle_data_right_elbow.dat");
 std::ofstream tracked_check_log("tracked_check.dat");
 
 int Kinect::count;
@@ -61,9 +57,9 @@ void Kinect::run()
 	tstring strUserAgent = _T("HttpRequestTest");
 	tstring strUrl = _T("https://kinect-walking-api.herokuapp.com/index");
 	bool bIsHttpVerbGet = false;
-	const int proc_id = 2016120204;
+	const int proc_id = 2016120603;
 	const int devise_id = 1;
-	const int person = 1;
+	const int person = 2;
 	tstring strResult;
 
 	map<string, any> obj;
@@ -71,12 +67,22 @@ void Kinect::run()
 	obj["devise_id"] = devise_id;
 	obj["person"] = person;
 
-	vector<any> feature1;
-	vector<any> feature2;
-	vector<any> feature3;
-	vector<any> feature4;
-	vector<any> feature5;
-	
+	std::ofstream angle_logs[FEATURE_SIZE];
+	angle_logs[0].open("angle_data_hip.dat");
+	angle_logs[1].open("angle_data_left_knee.dat");
+	angle_logs[2].open("angle_data_left_elbow.dat");
+	angle_logs[3].open("angle_data_right_knee.dat");
+	angle_logs[4].open("angle_data_right_elbow.dat");
+
+	vector<any> featureHip;
+	vector<any> featureLeftKnee;
+	vector<any> featureLeftElbow;
+	vector<any> featureRightKnee;
+	vector<any> featureRightElbow;
+	vector<vector<any>> features = { featureHip, featureLeftKnee, featureLeftElbow, featureRightKnee, featureRightElbow };
+	double *sums;
+	sums = (double *)calloc(FEATURE_SIZE, sizeof(double));
+
     // Main Loop
     while( true ){
 		nextCount();
@@ -89,7 +95,7 @@ void Kinect::run()
 				countInitialize();
 			}
 		//	std::cout << getCount() << std::endl;
-			output_data(feature1, feature2, feature3, feature4 ,feature5);
+			output_data(features, sums);
 		}
 
         // Draw Data
@@ -105,11 +111,28 @@ void Kinect::run()
         }
     }
 
-	obj["f1"] = feature1;
-	obj["f2"] = feature2;
-	obj["f3"] = feature3;
-	obj["f4"] = feature4;
-	obj["f5"] = feature5;
+	//ïΩãœílÇÃéZèoÅ`vectorÇÃíÜêgÇïΩãœílÇ≈à¯Ç≠
+	
+	for (int i = 0; i < FEATURE_SIZE; i++){ cout << sums[i] << endl; }
+	double mean;
+	int i = 0;
+	for (auto itr = features.begin(); itr != features.end(); ++itr){
+		vector<any> feature = *itr;
+		mean = sums[i]/feature.size();
+		for (auto itr2 = feature.begin(); itr2 != feature.end(); ++itr2){
+			any val = *itr2;
+			double cast_val = any_cast<double>(val)-mean;
+			*itr2 = cast_val;
+			angle_logs[i] << cast_val << endl;
+		}
+		i++;
+	}
+
+	obj["f1"] = features[0];
+	obj["f2"] = features[1];
+	obj["f3"] = features[2];
+	obj["f4"] = features[3];
+	obj["f5"] = features[4];
 	string json = json_builder::toJson(obj);
 	cout << json << endl;
 	
@@ -117,18 +140,18 @@ void Kinect::run()
 	TCHAR* str = new TCHAR[10000000];
 	_stprintf_s(str, 10000000, _T("%s"), json.c_str());
 	tstring strParameter = str;
-	if (!HttpRequest(strUserAgent, strUrl, bIsHttpVerbGet, strParameter, strResult))
-	{
-		std::cout << "failure" << std::endl;
+	if (ISPOST){
+		if (!HttpRequest(strUserAgent, strUrl, bIsHttpVerbGet, strParameter, strResult))
+		{
+			std::cout << "failure" << std::endl;
+		}
 	}
 	setlocale(LC_ALL, "Japanese");
 	_tprintf(_T("%s"), strResult.c_str());
 	tracked_check_log.close();
-	angle_data_left_knee.close();
-	angle_data_right_knee.close();
-	angle_data_hip.close();
-	angle_data_left_elbow.close();
-	angle_data_right_elbow.close();
+	for (int i = 0; i < FEATURE_SIZE; i++){
+		angle_logs[i].close();
+	}
 }
 
 // Initialize
@@ -384,8 +407,7 @@ bool Kinect::isAllJointTracked(std::array<Joint, JointType::JointType_Count>& jo
 	return isTracked;
 }
 
-void Kinect::output_data(std::vector<any>& feature1, std::vector<any>& feature2, std::vector<any>& feature3,
-	std::vector<any>& feature4, std::vector<any>& feature5)
+void Kinect::output_data(std::vector<vector<any>>& features, double* sums)
 {
 	double angleLeftKnee, angleRightKnee, angleHip, angleLeftElbow, angleRightElbow;
 	for (int index = 0; index < BODY_COUNT; index++){
@@ -417,22 +439,18 @@ void Kinect::output_data(std::vector<any>& feature1, std::vector<any>& feature2,
 			angleLeftElbow = 0.0;
 			angleRightElbow = 0.0;
 		}
-		feature1.push_back(angleLeftKnee);
-		feature2.push_back(angleRightKnee);
-		feature3.push_back(angleHip);
-		feature4.push_back(angleLeftElbow);
-		feature5.push_back(angleRightElbow);
+		features[0].push_back(angleHip);
+		features[1].push_back(angleLeftKnee);
+		features[2].push_back(angleLeftElbow);
+		features[3].push_back(angleRightKnee);
+		features[4].push_back(angleRightElbow);
 
-		//ç∂ïG
-		angle_data_left_knee << getCount() << " " << angleLeftKnee << std::endl;
-		//âEïG
-		angle_data_right_knee << getCount() << " " << angleRightKnee << std::endl;
-		//å“
-		angle_data_hip << getCount() << " " << angleHip << std::endl;
-		//ç∂ïI
-		angle_data_left_elbow << getCount() << " " << angleLeftElbow << std::endl;
-		//âEïI
-		angle_data_right_elbow << getCount() << " " << angleRightElbow << std::endl;
+		//ïΩãœílåvéZóp
+		sums[0] += angleHip;
+		sums[1] += angleLeftKnee;
+		sums[2] += angleLeftElbow;
+		sums[3] += angleRightKnee;
+		sums[4] += angleRightElbow;
 	}
 }
 
