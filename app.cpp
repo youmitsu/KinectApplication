@@ -29,7 +29,7 @@ typedef std::basic_stringstream<TCHAR>	tstringstream;
 #define	READBUFFER_SIZE		(4096)
 #define FEATURE_SIZE 5
 #define FRAME_SIZE 13
-#define ISPOST false
+#define ISPOST true
 
 // Constructor
 Kinect::Kinect()
@@ -57,9 +57,9 @@ void Kinect::run()
 	tstring strUserAgent = _T("HttpRequestTest");
 	tstring strUrl = _T("https://kinect-walking-api.herokuapp.com/index");
 	bool bIsHttpVerbGet = false;
-	const int proc_id = 2016120603;
+	const int proc_id = 2016120701;
 	const int devise_id = 1;
-	const int person = 2;
+	const int person = 1;
 	tstring strResult;
 
 	map<string, any> obj;
