@@ -16,6 +16,7 @@
 #include "json_builder.h"
 #include <map>
 #include <boost/any.hpp>
+#include <direct.h>
 
 #pragma comment (lib, "Wininet.lib")
 
@@ -30,6 +31,36 @@ typedef std::basic_stringstream<TCHAR>	tstringstream;
 #define FEATURE_SIZE 5
 #define FRAME_SIZE 13
 #define ISPOST true
+#define STR(var) #var
+#define ID_COUNT 9
+
+enum member{
+	MITSUHORI = 1,
+	HIROKI = 2,
+	KOYAMA = 3,
+	KAJUMA = 4,
+	RUKA = 5,
+	SAITOU = 6,
+	SASAKI = 7,
+	HAYASHI = 8,
+	HANAIZUMI = 9
+};
+
+#define WHO KOYAMA
+#define PROC_ID 2016120701
+
+string dir_name[] = {
+	"",
+	"三堀",
+	"山崎(洋)",
+	"小山",
+	"カジュマー",
+	"山崎(瑠)",
+	"斎藤",
+	"佐々木",
+	"林",
+	"花泉"
+};
 
 // Constructor
 Kinect::Kinect()
@@ -57,13 +88,22 @@ void Kinect::run()
 	tstring strUserAgent = _T("HttpRequestTest");
 	tstring strUrl = _T("https://kinect-walking-api.herokuapp.com/index");
 	bool bIsHttpVerbGet = false;
-	const int proc_id = 2016120701;
+	//const int proc_id = 2016120702;
 	const int devise_id = 1;
 	const int person = 1;
 	tstring strResult;
 
+	char dir[1000];
+	sprintf_s(dir, "C:\\Users\\Yu Mitsuhori\\Documents\\Visual Studio 2013\\Projects\\KinectApplication1\\KinectApplication1\\%s\\%2d", dir_name[WHO].c_str(), PROC_ID);
+	if (!_mkdir(dir)){
+		printf("フォルダ作成に成功しました。");
+	}
+	else{
+		printf("フォルダ作成に失敗しました。");
+	}
+
 	map<string, any> obj;
-	obj["proc_id"] = proc_id;
+	obj["proc_id"] = PROC_ID;
 	obj["devise_id"] = devise_id;
 	obj["person"] = person;
 
@@ -613,9 +653,12 @@ inline void Kinect::showBody()
     cv::resize( colorMat, resizeMat, cv::Size(), scale, scale );
 
 	if (isAcquireBodyPoint()){
-		std::ostringstream oss;
-		oss << getCount() << ".png";
+		char dir[1000];
+	    sprintf_s(dir, "C:\\Users\\Yu Mitsuhori\\Documents\\Visual Studio 2013\\Projects\\KinectApplication1\\KinectApplication1\\%s\\%2d\\", dir_name[WHO].c_str(), PROC_ID);
+		ostringstream oss;
+		oss << dir << getCount() << ".png";
 		std::string filename = oss.str();
+		cout << filename << endl;
 		try{
 			imwrite(filename, resizeMat);
 		}
