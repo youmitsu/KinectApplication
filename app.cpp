@@ -46,8 +46,9 @@ enum member{
 	HANAIZUMI = 9
 };
 
-#define WHO KOYAMA
-#define PROC_ID 2016120701
+#define WHO MITSUHORI
+#define PROC_ID 2016121499
+#define DEVISE 1
 
 string dir_name[] = {
 	"",
@@ -60,6 +61,72 @@ string dir_name[] = {
 	"佐々木",
 	"林",
 	"花泉"
+};
+
+string feature_filename[] = {
+	"angle_data_hip.dat",
+	"angle_data_left_knee.dat",
+	"angle_data_left_elbow.dat",
+	"angle_data_right_knee.dat",
+	"angle_data_right_elbow.dat",
+};
+
+/*
+JointType_SpineBase	= 0,
+JointType_SpineMid	= 1,
+JointType_Neck	= 2,
+JointType_Head	= 3,
+JointType_ShoulderLeft	= 4,
+JointType_ElbowLeft	= 5,
+JointType_WristLeft	= 6,
+JointType_HandLeft	= 7,
+JointType_ShoulderRight	= 8,
+JointType_ElbowRight	= 9,
+JointType_WristRight	= 10,
+JointType_HandRight	= 11,
+JointType_HipLeft	= 12,
+JointType_KneeLeft	= 13,
+JointType_AnkleLeft	= 14,
+JointType_FootLeft	= 15,
+JointType_HipRight	= 16,
+JointType_KneeRight	= 17,
+JointType_AnkleRight	= 18,
+JointType_FootRight	= 19,
+JointType_SpineShoulder	= 20,
+JointType_HandTipLeft	= 21,
+JointType_ThumbLeft	= 22,
+JointType_HandTipRight	= 23,
+JointType_ThumbRight	= 24,
+*/
+
+string position_filename[] = {
+	"position_data_SpineBase.dat",
+	"position_data_SpineMid.dat",
+	"position_SpineBase.dat",
+	"position_SpineMid.dat",
+	"position_Neck.dat",
+	"position_Head.dat",
+	"position_ShoulderLeft.dat",
+	"position_ElbowLeft.dat",
+	"position_WristLeft.dat",
+	"position_HandLeft.dat",
+	"position_ShoulderRight.dat",
+	"position_ElbowRight.dat",
+	"position_WristRight.dat",
+	"position_HandRight.dat",
+	"position_HipLeft.dat",
+	"position_KneeLeft.dat",
+	"position_AnkleLeft.dat",
+	"position_FootLeft.dat",
+	"position_HipRight.dat",
+	"position_KneeRight.dat",
+	"position_AnkleRight.dat",
+	"position_FootRight.dat",
+	"position_SpineShoulder.dat",
+	"position_HandTipLeft.dat",
+	"position_ThumbLeft.dat",
+	"position_HandTipRight.dat",
+	"position_ThumbRight.dat"
 };
 
 // Constructor
@@ -90,7 +157,6 @@ void Kinect::run()
 	bool bIsHttpVerbGet = false;
 	//const int proc_id = 2016120702;
 	const int devise_id = 1;
-	const int person = 1;
 	tstring strResult;
 
 	char dir[1000];
@@ -103,16 +169,18 @@ void Kinect::run()
 	}
 
 	map<string, any> obj;
-	obj["proc_id"] = PROC_ID;
-	obj["devise_id"] = devise_id;
-	obj["person"] = person;
+	obj["proc_id"] = int(PROC_ID);
+	obj["devise_id"] = int(DEVISE);
+	obj["person"] = int(WHO);
 
+	const string slash = "\\";
+
+	//角度データ出力用ログファイル
 	std::ofstream angle_logs[FEATURE_SIZE];
-	angle_logs[0].open("angle_data_hip.dat");
-	angle_logs[1].open("angle_data_left_knee.dat");
-	angle_logs[2].open("angle_data_left_elbow.dat");
-	angle_logs[3].open("angle_data_right_knee.dat");
-	angle_logs[4].open("angle_data_right_elbow.dat");
+	for (int i = 0; i < FEATURE_SIZE; i++){
+		string log_filename = dir_name[WHO] + slash + to_string(PROC_ID) + slash + feature_filename[i];
+		angle_logs[i].open(log_filename.c_str());
+	}
 
 	vector<any> featureHip;
 	vector<any> featureLeftKnee;
@@ -122,6 +190,13 @@ void Kinect::run()
 	vector<vector<any>> features = { featureHip, featureLeftKnee, featureLeftElbow, featureRightKnee, featureRightElbow };
 	double *sums;
 	sums = (double *)calloc(FEATURE_SIZE, sizeof(double));
+
+	//位置データ出力用ログファイル
+	std::ofstream position_logs[JointType_Count];
+	for (int i = 0; i < JointType_Count; i++){
+		string log_filename = dir_name[WHO] + slash + to_string(PROC_ID) + slash + position_filename[i];
+		position_logs[i].open(log_filename.c_str());
+	}
 
     // Main Loop
     while( true ){
@@ -135,7 +210,7 @@ void Kinect::run()
 				countInitialize();
 			}
 		//	std::cout << getCount() << std::endl;
-			output_data(features, sums);
+			output_data(features, sums, position_logs);
 		}
 
         // Draw Data
@@ -177,8 +252,8 @@ void Kinect::run()
 	cout << json << endl;
 	
 	setlocale(LC_ALL, "Japanese");
-	TCHAR* str = new TCHAR[10000000];
-	_stprintf_s(str, 10000000, _T("%s"), json.c_str());
+	TCHAR* str = new TCHAR[999999999];
+	_stprintf_s(str, 999999999, _T("%s"), json.c_str());
 	tstring strParameter = str;
 	if (ISPOST){
 		if (!HttpRequest(strUserAgent, strUrl, bIsHttpVerbGet, strParameter, strResult))
@@ -191,6 +266,9 @@ void Kinect::run()
 	tracked_check_log.close();
 	for (int i = 0; i < FEATURE_SIZE; i++){
 		angle_logs[i].close();
+	}
+	for (int i = 0; i < JointType_Count; i++){
+		position_logs[i].close();
 	}
 }
 
@@ -436,18 +514,11 @@ bool Kinect::isAllJointTracked(std::array<Joint, JointType::JointType_Count>& jo
 			isTracked = false;
 			break;
 		}
-	/*	if (joint.TrackingState == TrackingState::TrackingState_Inferred){
-			auto itr = std::find(jointComposeAngle.begin(), jointComposeAngle.end(), joint.JointType);
-			if (itr == jointComposeAngle.end()){
-				isTracked = false;
-				break;
-			}
-		}*/
 	}
 	return isTracked;
 }
 
-void Kinect::output_data(std::vector<vector<any>>& features, double* sums)
+void Kinect::output_data(std::vector<vector<any>>& features, double* sums, std::ofstream* positions)
 {
 	double angleLeftKnee, angleRightKnee, angleHip, angleLeftElbow, angleRightElbow;
 	for (int index = 0; index < BODY_COUNT; index++){
@@ -465,10 +536,15 @@ void Kinect::output_data(std::vector<vector<any>>& features, double* sums)
 		std::array<Joint, JointType::JointType_Count> joints;
 		ERROR_CHECK(body->GetJoints(static_cast<UINT>(joints.size()), &joints[0]));
 
+		//関節の位置情報出力
+		for (int i = 0; i < JointType_Count; i++){
+			positions[i] << joints[i].Position.X*1000 << " " << joints[i].Position.Y*1000 << " " << joints[i].Position.Z*1000 << endl;
+		}
+
 		if (isAllJointTracked(joints)){
 			angleLeftKnee = evaluate_angle(joints[JointType::JointType_KneeLeft], joints[JointType::JointType_SpineBase], joints[JointType::JointType_AnkleLeft]);
 			angleRightKnee = evaluate_angle(joints[JointType::JointType_KneeRight], joints[JointType::JointType_SpineBase], joints[JointType::JointType_AnkleRight]);
-			angleHip = evaluate_angle(joints[JointType::JointType_SpineBase], joints[JointType::JointType_KneeRight], joints[JointType::JointType_KneeLeft]);
+			angleHip = evaluate_seperated_angle(joints[JointType::JointType_KneeRight], joints[JointType::JointType_HipRight], joints[JointType::JointType_KneeLeft], joints[JointType::JointType_HipLeft]);
 			angleLeftElbow = evaluate_angle(joints[JointType::JointType_ElbowLeft], joints[JointType::JointType_ShoulderLeft], joints[JointType::JointType_WristLeft]);
 			angleRightElbow = evaluate_angle(joints[JointType::JointType_ElbowRight], joints[JointType::JointType_ShoulderRight], joints[JointType::JointType_WristRight]);
 		}
@@ -703,6 +779,22 @@ float Kinect::evaluate_angle(Joint c, Joint a, Joint b)
 	float cos = ((ax_cx*bx_cx) + (ay_cy*by_cy)) / ((sqrt((ax_cx*ax_cx) + (ay_cy*ay_cy))*sqrt((bx_cx*bx_cx) + (by_cy*by_cy))));
 	float angle = acosf(cos);
 	//if (angle > PI / 2){ angle = PI - angle; }
+	return angle;
+}
+
+//二つのベクトルのスタートが離れている場合（腰の角度算出に使用）
+//膝がAorC,骨盤がBorD
+float Kinect::evaluate_seperated_angle(Joint a, Joint b, Joint c, Joint d){
+	cv::Point3f pA = cv::Point3f(a.Position.X, a.Position.Y, a.Position.Z);
+	cv::Point3f pB = cv::Point3f(b.Position.X, b.Position.Y, b.Position.Z);
+	cv::Point3f pC = cv::Point3f(c.Position.X, c.Position.Y, c.Position.Z);
+	cv::Point3f pD = cv::Point3f(d.Position.X, d.Position.Y, d.Position.Z);
+	int ax_bx = (pA.x - pB.x) * 1000;
+	int ay_by = (pA.y - pB.y) * 1000;
+	int cx_dx = (pC.x - pD.x) * 1000;
+	int cy_dy = (pC.y - pD.y) * 1000;
+	float cos = ((ax_bx*cx_dx) + (ay_by*cy_dy)) / ((sqrt((ax_bx*ax_bx) + (ay_by*ay_by))*sqrt((cx_dx*cx_dx) + (cy_dy*cy_dy))));
+	float angle = acosf(cos);
 	return angle;
 }
 

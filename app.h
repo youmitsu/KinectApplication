@@ -165,9 +165,12 @@ private:
 
 	//evaluate_angle
 	float evaluate_angle(Joint c, Joint a, Joint b);
+	
+	//˜—p
+	float evaluate_seperated_angle(Joint a, Joint b, Joint c, Joint d);
 
 	//output_data
-	void output_data(std::vector<std::vector<any>>& features, double* means);
+	void output_data(std::vector<std::vector<any>>& features, double* means, std::ofstream* positions);
 
 	//check_all_tracked
 	bool isAllJointTracked(std::array<Joint, JointType::JointType_Count>& joints);
