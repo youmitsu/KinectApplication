@@ -83,7 +83,7 @@ public:
 	int getCount(){ return count; }
 
 	//lassoCount
-	void initializeLassoCount(){ lassoCount == 0; }
+	void initializeLassoCount(){ lassoCount = 0; }
 	void plus1ToLassoCount(){ lassoCount++; }
 	//データ出力一発目の判定(フレーム数取得に使用)
 	bool isFirstAcquire(){
@@ -96,7 +96,7 @@ public:
 	}
 	//データ出力の判定
 	bool isAcquireBodyPoint(){
-		if (lassoCount > 10){
+		if (lassoCount >= 11){
 			return true;
 		}
 		else{

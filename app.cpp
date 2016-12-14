@@ -47,7 +47,7 @@ enum member{
 };
 
 #define WHO MITSUHORI
-#define PROC_ID 2016121499
+#define PROC_ID 2016121486
 #define DEVISE 2
 
 string dir_name[] = {
@@ -212,13 +212,13 @@ void Kinect::run()
         update();
 
 		//角度データ出力
-		if (isAcquireBodyPoint()){
 			if (isFirstAcquire()){
 				countInitialize();
 			}
-		//	std::cout << getCount() << std::endl;
-			output_data(features, sums, position_logs);
-		}
+			if (isAcquireBodyPoint()){
+				output_data(features, sums, position_logs);
+			}
+		
 
         // Draw Data
         draw();
@@ -241,11 +241,13 @@ void Kinect::run()
 	for (auto itr = features.begin(); itr != features.end(); ++itr){
 		vector<any> feature = *itr;
 		mean = sums[i]/feature.size();
+		int j = 0;
 		for (auto itr2 = feature.begin(); itr2 != feature.end(); ++itr2){
 			any val = *itr2;
 			double cast_val = any_cast<double>(val)-mean;
 			*itr2 = cast_val;
-			angle_logs[i] << cast_val << endl;
+			angle_logs[i] << j << " " << cast_val << endl;
+			j++;
 		}
 		i++;
 	}
@@ -528,53 +530,58 @@ bool Kinect::isAllJointTracked(std::array<Joint, JointType::JointType_Count>& jo
 void Kinect::output_data(std::vector<vector<any>>& features, double* sums, std::ofstream* positions)
 {
 	double angleLeftKnee, angleRightKnee, angleHip, angleLeftElbow, angleRightElbow;
+	int no_tracked_count = 0;
+	std::array<Joint, JointType::JointType_Count> joints;
 	for (int index = 0; index < BODY_COUNT; index++){
 		ComPtr<IBody> body = bodies[index];
 		if (body == nullptr){
 			continue;
 		}
-
 		BOOLEAN tracked = FALSE;
 		ERROR_CHECK(body->get_IsTracked(&tracked));
 		if (!tracked){
+			no_tracked_count++;
 			continue;
 		}
+		else{
+			ERROR_CHECK(body->GetJoints(static_cast<UINT>(joints.size()), &joints[0]));
 
-		std::array<Joint, JointType::JointType_Count> joints;
-		ERROR_CHECK(body->GetJoints(static_cast<UINT>(joints.size()), &joints[0]));
-
-		//関節の位置情報出力
-		for (int i = 0; i < JointType_Count; i++){
-			positions[i] << joints[i].Position.X*1000 << " " << joints[i].Position.Y*1000 << " " << joints[i].Position.Z*1000 << endl;
-		}
-
-		if (isAllJointTracked(joints)){
 			angleLeftKnee = evaluate_angle(joints[JointType::JointType_KneeLeft], joints[JointType::JointType_SpineBase], joints[JointType::JointType_AnkleLeft]);
 			angleRightKnee = evaluate_angle(joints[JointType::JointType_KneeRight], joints[JointType::JointType_SpineBase], joints[JointType::JointType_AnkleRight]);
 			angleHip = evaluate_seperated_angle(joints[JointType::JointType_KneeRight], joints[JointType::JointType_HipRight], joints[JointType::JointType_KneeLeft], joints[JointType::JointType_HipLeft]);
 			angleLeftElbow = evaluate_angle(joints[JointType::JointType_ElbowLeft], joints[JointType::JointType_ShoulderLeft], joints[JointType::JointType_WristLeft]);
 			angleRightElbow = evaluate_angle(joints[JointType::JointType_ElbowRight], joints[JointType::JointType_ShoulderRight], joints[JointType::JointType_WristRight]);
+			break;
 		}
-		else{
-			angleLeftKnee = 0.0;
-			angleRightKnee = 0.0;
-			angleHip = 0.0;
-			angleLeftElbow = 0.0;
-			angleRightElbow = 0.0;
-		}
-		features[0].push_back(angleHip);
-		features[1].push_back(angleLeftKnee);
-		features[2].push_back(angleLeftElbow);
-		features[3].push_back(angleRightKnee);
-		features[4].push_back(angleRightElbow);
-
-		//平均値計算用
-		sums[0] += angleHip;
-		sums[1] += angleLeftKnee;
-		sums[2] += angleLeftElbow;
-		sums[3] += angleRightKnee;
-		sums[4] += angleRightElbow;
 	}
+	if (no_tracked_count == BODY_COUNT){
+		angleLeftKnee = 0.0;
+		angleRightKnee = 0.0;
+		angleHip = 0.0;
+		angleLeftElbow = 0.0;
+		angleRightElbow = 0.0;
+		for (int i = 0; i < JointType_Count; i++){
+			positions[i] << getCount() << " " << 0.0 << " " << 0.0 << " " << 0.0 << endl;
+		}
+	}
+	else{
+		//関節の位置情報出力
+		for (int i = 0; i < JointType_Count; i++){
+			positions[i] << getCount() << " " << joints[i].Position.X * 1000 << " " << joints[i].Position.Y * 1000 << " " << joints[i].Position.Z * 1000 << endl;
+		}
+	}
+	features[0].push_back(angleHip);
+	features[1].push_back(angleLeftKnee);
+	features[2].push_back(angleLeftElbow);
+	features[3].push_back(angleRightKnee);
+	features[4].push_back(angleRightElbow);
+
+	//平均値計算用
+	sums[0] += angleHip;
+	sums[1] += angleLeftKnee;
+	sums[2] += angleLeftElbow;
+	sums[3] += angleRightKnee;
+	sums[4] += angleRightElbow;
 }
 
 // Draw Body
@@ -744,7 +751,7 @@ inline void Kinect::showBody()
 			origin = "C:\\Users\\yu\\Documents\\Visual Studio 2013\\Projects\\KinectApplication2\\KinectApplication2\\%s\\%2d\\";
 		}
 		char dir[1000];
-	    sprintf_s(dir, origin.c_str(), dir_name[WHO].c_str(), PROC_ID);
+		sprintf_s(dir, origin.c_str(), dir_name[WHO].c_str(), PROC_ID);
 		ostringstream oss;
 		oss << dir << getCount() << ".png";
 		std::string filename = oss.str();
