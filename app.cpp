@@ -48,7 +48,7 @@ enum member{
 
 #define WHO MITSUHORI
 #define PROC_ID 2016121499
-#define DEVISE 1
+#define DEVISE 2
 
 string dir_name[] = {
 	"",
@@ -159,8 +159,15 @@ void Kinect::run()
 	const int devise_id = 1;
 	tstring strResult;
 
+	string origin;
+	if (DEVISE == 1){
+		origin = "C:\\Users\\Yu Mitsuhori\\Documents\\Visual Studio 2013\\Projects\\KinectApplication1\\KinectApplication1\\%s\\%2d";
+	}
+	else{
+		origin = "C:\\Users\\yu\\Documents\\Visual Studio 2013\\Projects\\KinectApplication2\\KinectApplication2\\%s\\%2d";
+	}
 	char dir[1000];
-	sprintf_s(dir, "C:\\Users\\Yu Mitsuhori\\Documents\\Visual Studio 2013\\Projects\\KinectApplication1\\KinectApplication1\\%s\\%2d", dir_name[WHO].c_str(), PROC_ID);
+	sprintf_s(dir, origin.c_str(), dir_name[WHO].c_str(), PROC_ID);
 	if (!_mkdir(dir)){
 		printf("フォルダ作成に成功しました。");
 	}
