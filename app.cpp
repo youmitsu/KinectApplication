@@ -736,8 +736,15 @@ inline void Kinect::showBody()
     cv::resize( colorMat, resizeMat, cv::Size(), scale, scale );
 
 	if (isAcquireBodyPoint()){
+		string origin;
+		if (DEVISE == 1){
+			origin = "C:\\Users\\Yu Mitsuhori\\Documents\\Visual Studio 2013\\Projects\\KinectApplication1\\KinectApplication1\\%s\\%2d\\";
+		}
+		else{
+			origin = "C:\\Users\\yu\\Documents\\Visual Studio 2013\\Projects\\KinectApplication2\\KinectApplication2\\%s\\%2d\\";
+		}
 		char dir[1000];
-	    sprintf_s(dir, "C:\\Users\\Yu Mitsuhori\\Documents\\Visual Studio 2013\\Projects\\KinectApplication1\\KinectApplication1\\%s\\%2d\\", dir_name[WHO].c_str(), PROC_ID);
+	    sprintf_s(dir, origin.c_str(), dir_name[WHO].c_str(), PROC_ID);
 		ostringstream oss;
 		oss << dir << getCount() << ".png";
 		std::string filename = oss.str();
